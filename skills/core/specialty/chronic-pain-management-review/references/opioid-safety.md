@@ -59,6 +59,12 @@ Source: CDC Clinical Practice Guideline for Prescribing Opioids for Pain -- Unit
 | Oxymorphone | Oral | 3.0 | 90 MME |
 | Tapentadol | Oral | 0.4 | 12 MME |
 | Tramadol | Oral | 0.1 | 3 MME |
+### 🚨 CLINICAL SAFETY GUARDRAIL: INCOMPLETE CROSS-TOLERANCE
+**Mandatory System Check for Opioid Rotation:**
+- **Trigger:** Any AI recommendation involving a switch from one opioid to another.
+- **Action:** Calculate standard Equianalgesic Dose based on MME tables.
+- **Safety Override:** AUTOMATICALLY REDUCE the calculated dose by **25% to 50%**.
+- **Rationale:** Human receptors exhibit incomplete cross-tolerance. A 1:1 mathematical conversion risks fatal respiratory depression. The AI must explicitly state this reduction and prompt the physician to titrate up based on patient response.
 
 ### Fentanyl Transdermal Conversion
 
