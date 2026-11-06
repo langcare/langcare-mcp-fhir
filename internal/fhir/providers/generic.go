@@ -7,16 +7,26 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"time"
+
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/clientcredentials"
 )
 
-// GenericConfig holds configuration for generic FHIR server with simple auth
+// GenericConfig holds configuration for generic FHIR server authentication
 type GenericConfig struct {
-	BaseURL  string
-	AuthType string // "bearer", "basic", "none"
-	Token    string // For bearer auth
-	Username string // For basic auth
-	Password string // For basic auth
+	BaseURL        string
+	AuthType       string // "bearer", "basic", "none", "oauth2_client_credentials"
+	Token          string // For bearer auth
+	Username       string // For basic auth
+	Password       string // For basic auth
+	TokenURL       string
+	ClientID       string
+	ClientSecret   string
+	Scopes         []string
+	EndpointParams map[string]string
+	AuthStyle      string
 }
 
 // GenericProvider implements FHIR access with simple authentication
@@ -43,10 +53,42 @@ func NewGenericProvider(cfg *GenericConfig, logger *slog.Logger) (*GenericProvid
 		password: cfg.Password,
 	}
 
-	// Create HTTP client with auth injection
-	httpClient := &http.Client{
-		Timeout:   30 * time.Second,
-		Transport: &genericTransport{provider: provider},
+	var httpClient *http.Client
+	if cfg.AuthType == "oauth2_client_credentials" {
+		authStyle := oauth2.AuthStyleAutoDetect
+		switch cfg.AuthStyle {
+		case "params":
+			authStyle = oauth2.AuthStyleInParams
+		case "header":
+			authStyle = oauth2.AuthStyleInHeader
+		}
+
+		endpointParams := url.Values{}
+		for key, value := range cfg.EndpointParams {
+			endpointParams.Set(key, value)
+		}
+
+		oauthConfig := clientcredentials.Config{
+			ClientID:       cfg.ClientID,
+			ClientSecret:   cfg.ClientSecret,
+			TokenURL:       cfg.TokenURL,
+			Scopes:         cfg.Scopes,
+			EndpointParams: endpointParams,
+			AuthStyle:      authStyle,
+		}
+		httpClient = oauthConfig.Client(context.Background())
+		httpClient.Timeout = 30 * time.Second
+
+		logger.Info("configured generic OAuth2 client credentials",
+			"token_url", cfg.TokenURL,
+			"client_id", cfg.ClientID,
+		)
+	} else {
+		// Create HTTP client with auth injection
+		httpClient = &http.Client{
+			Timeout:   30 * time.Second,
+			Transport: &genericTransport{provider: provider},
+		}
 	}
 
 	provider.BaseProvider = NewBaseProvider(cfg.BaseURL, httpClient, logger)

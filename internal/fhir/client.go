@@ -56,11 +56,17 @@ func NewClient(cfg config.FHIRServerConfig, logger *slog.Logger) (providers.Prov
 
 	case "generic":
 		return providers.NewGenericProvider(&providers.GenericConfig{
-			BaseURL:  cfg.BaseURL,
-			AuthType: cfg.Auth.Type,
-			Token:    cfg.Auth.Token,
-			Username: cfg.Auth.Username,
-			Password: cfg.Auth.Password,
+			BaseURL:        cfg.BaseURL,
+			AuthType:       cfg.Auth.Type,
+			Token:          cfg.Auth.Token,
+			Username:       cfg.Auth.Username,
+			Password:       cfg.Auth.Password,
+			TokenURL:       cfg.Auth.TokenURL,
+			ClientID:       cfg.Auth.ClientID,
+			ClientSecret:   cfg.Auth.ClientSecret,
+			Scopes:         cfg.Auth.Scopes,
+			EndpointParams: cfg.Auth.EndpointParams,
+			AuthStyle:      cfg.Auth.AuthStyle,
 		}, logger)
 
 	default:
