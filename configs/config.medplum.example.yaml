@@ -1,0 +1,24 @@
+# Generic OAuth2 client credentials for a Medplum ClientApplication.
+# Set MEDPLUM_CLIENT_ID and MEDPLUM_CLIENT_SECRET before loading.
+fhir_server:
+  provider: "generic"
+  base_url: "https://api.medplum.com/fhir/R4"
+  auth:
+    type: "oauth2_client_credentials"
+    token_url: "https://api.medplum.com/oauth2/token"
+    client_id: "${MEDPLUM_CLIENT_ID}"
+    client_secret: "${MEDPLUM_CLIENT_SECRET}"
+    scopes: []
+    auth_style: "auto"
+
+mcp:
+  name: "LangCare MCP FHIR (Medplum)"
+  version: "2.5.0"
+
+transport:
+  stdio: true
+
+logging:
+  level: "info"
+  format: "json"
+  scrub_phi: true

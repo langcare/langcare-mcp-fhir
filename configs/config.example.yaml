@@ -68,7 +68,7 @@ fhir_server:
   provider: "generic"
   base_url: "https://hapi.fhir.org/baseR4"
   auth:
-    type: "none"  # Options: bearer, basic, none
+    type: "none"  # Options: bearer, basic, none, oauth2_client_credentials
     # For bearer token auth:
     # token: "${FHIR_AUTH_TOKEN}"
     # For basic auth:

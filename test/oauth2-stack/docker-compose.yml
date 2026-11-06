@@ -1,0 +1,122 @@
+# Local synthetic-data stack. From the repo root:
+#   docker compose -f test/oauth2-stack/docker-compose.yml up -d
+#   curl -i http://localhost:8080/fhir/metadata  # must return 401
+# Set FHIR_CLIENT_ID=langcare-test and FHIR_CLIENT_SECRET to the test-only
+# client secret in realm-export.json, then use the Keycloak example config.
+# Admin credentials must be set in KEYCLOAK_ADMIN and KEYCLOAK_ADMIN_PASSWORD.
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: "${KEYCLOAK_ADMIN:?Set a local Keycloak admin username}"
+      KEYCLOAK_ADMIN_PASSWORD: "${KEYCLOAK_ADMIN_PASSWORD:?Set a local Keycloak admin password}"
+      KC_HEALTH_ENABLED: "true"
+      # Tokens obtained from the host must have the same issuer Envoy checks.
+      KC_HOSTNAME: "http://localhost:8081"
+    ports:
+      - "127.0.0.1:8081:8080"
+    volumes:
+      - ./realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    healthcheck:
+      # Keycloak has bash but no curl; health endpoints use management port 9000.
+      test:
+        - CMD
+        - bash
+        - -ec
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/9000;
+          printf 'GET /health/ready HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3;
+          IFS= read -r status <&3;
+          [[ "$$status" == *" 200 "* ]]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  hapi:
+    image: hapiproject/hapi:latest
+    environment:
+      SERVER_PORT: "8082"
+    expose:
+      - "8082"
+    # No host port: FHIR requests from the host go through Envoy.
+
+  proxy:
+    image: envoyproxy/envoy:v1.36-latest
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      hapi:
+        condition: service_started
+    entrypoint: ["/bin/sh", "-ec"]
+    # Embed Envoy's bootstrap to keep the stack self-contained in this file.
+    command:
+      - |
+        cat > /tmp/envoy.yaml <<'EOF'
+        static_resources:
+          listeners:
+            - name: fhir
+              address:
+                socket_address: {address: 0.0.0.0, port_value: 8080}
+              filter_chains:
+                - filters:
+                    - name: envoy.filters.network.http_connection_manager
+                      typed_config:
+                        "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                        stat_prefix: fhir
+                        route_config:
+                          name: fhir
+                          virtual_hosts:
+                            - name: hapi
+                              domains: ["*"]
+                              routes:
+                                - match: {prefix: "/"}
+                                  route: {cluster: hapi, timeout: 30s}
+                        http_filters:
+                          - name: envoy.filters.http.jwt_authn
+                            typed_config:
+                              "@type": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication
+                              providers:
+                                keycloak:
+                                  issuer: http://localhost:8081/realms/fhir
+                                  from_headers:
+                                    - name: Authorization
+                                      value_prefix: "Bearer "
+                                  remote_jwks:
+                                    http_uri:
+                                      uri: http://keycloak:8080/realms/fhir/protocol/openid-connect/certs
+                                      cluster: keycloak
+                                      timeout: 5s
+                                    cache_duration: 300s
+                              rules:
+                                - match: {prefix: "/"}
+                                  requires: {provider_name: keycloak}
+                          - name: envoy.filters.http.router
+                            typed_config:
+                              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+          clusters:
+            - name: hapi
+              type: STRICT_DNS
+              connect_timeout: 5s
+              load_assignment:
+                cluster_name: hapi
+                endpoints:
+                  - lb_endpoints:
+                      - endpoint:
+                          address:
+                            socket_address: {address: hapi, port_value: 8082}
+            - name: keycloak
+              type: STRICT_DNS
+              connect_timeout: 5s
+              load_assignment:
+                cluster_name: keycloak
+                endpoints:
+                  - lb_endpoints:
+                      - endpoint:
+                          address:
+                            socket_address: {address: keycloak, port_value: 8080}
+        EOF
+        exec envoy -c /tmp/envoy.yaml
