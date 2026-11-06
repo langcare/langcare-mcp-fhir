@@ -1,0 +1,24 @@
+# Generic OAuth2 client credentials for HAPI FHIR behind Keycloak.
+# Use with test/oauth2-stack; set FHIR_CLIENT_ID and FHIR_CLIENT_SECRET.
+fhir_server:
+  provider: "generic"
+  base_url: "http://localhost:8080/fhir"
+  auth:
+    type: "oauth2_client_credentials"
+    token_url: "http://localhost:8081/realms/fhir/protocol/openid-connect/token"
+    client_id: "${FHIR_CLIENT_ID}"
+    client_secret: "${FHIR_CLIENT_SECRET}"
+    scopes: []
+    auth_style: "auto"
+
+mcp:
+  name: "LangCare MCP FHIR (Keycloak + HAPI)"
+  version: "2.5.0"
+
+transport:
+  stdio: true
+
+logging:
+  level: "info"
+  format: "json"
+  scrub_phi: true

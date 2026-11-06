@@ -177,6 +177,35 @@ Auth2: FHIR Backend Authentication (Bearer/OAuth2/SMART on FHIR)
 - Credential management procedures
 - Audit logging implementation
 
+### Generic OAuth2 Client Credentials
+
+For FHIR servers behind an OAuth2 token endpoint (Keycloak, Medplum, Smile CDR, Aidbox):
+
+```yaml
+fhir_server:
+  provider: "generic"
+  base_url: "http://localhost:8080/fhir"
+  auth:
+    type: "oauth2_client_credentials"
+    token_url: "http://localhost:8081/realms/fhir/protocol/openid-connect/token"
+    client_id: "${FHIR_CLIENT_ID}"
+    client_secret: "${FHIR_CLIENT_SECRET}"
+    scopes: []              # optional
+    endpoint_params: {}     # optional extra token request params
+    auth_style: "auto"      # params | header | auto (default)
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `token_url` | Yes | OAuth2 token endpoint URL |
+| `client_id` | Yes | Client ID (use `${ENV_VAR}` for secrets) |
+| `client_secret` | Yes | Client secret (use `${ENV_VAR}` for secrets) |
+| `scopes` | No | OAuth2 scopes to request |
+| `endpoint_params` | No | Extra form parameters for the token request |
+| `auth_style` | No | How to send credentials: `params` (form body), `header` (Basic auth), `auto` (let the library detect) |
+
+See [Keycloak](configs/config.oauth2-keycloak.example.yaml) and [Medplum](configs/config.medplum.example.yaml) for complete examples.
+
 ## MCP Apps (Interactive UIs)
 
 LangCare MCP FHIR ships with built-in **MCP Apps** — interactive, rich UI views that run directly inside MCP-capable hosts like Claude Desktop. Unlike traditional chat-based tool output, MCP Apps render full React-based interfaces with charts, tables, and interactive controls while using the same underlying FHIR tools.

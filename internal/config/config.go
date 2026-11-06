@@ -59,10 +59,16 @@ type FHIRServerConfig struct {
 
 // AuthConfig contains authentication settings for generic provider
 type AuthConfig struct {
-	Type     string `yaml:"type"` // bearer, basic, none (for generic provider)
-	Token    string `yaml:"token"`
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
+	Type           string            `yaml:"type"` // bearer, basic, none, oauth2_client_credentials
+	Token          string            `yaml:"token"`
+	Username       string            `yaml:"username"`
+	Password       string            `yaml:"password"`
+	TokenURL       string            `yaml:"token_url"`
+	ClientID       string            `yaml:"client_id"`
+	ClientSecret   string            `yaml:"client_secret"`
+	Scopes         []string          `yaml:"scopes"`
+	EndpointParams map[string]string `yaml:"endpoint_params"`
+	AuthStyle      string            `yaml:"auth_style"` // params, header, auto (default: auto)
 }
 
 // GCPConfig contains GCP Healthcare API settings
@@ -294,15 +300,16 @@ func (c *Config) validate() error {
 
 		// Validate auth type for generic provider
 		validAuthTypes := map[string]bool{
-			"bearer": true,
-			"basic":  true,
-			"none":   true,
+			"bearer":                    true,
+			"basic":                     true,
+			"none":                      true,
+			"oauth2_client_credentials": true,
 		}
 		if c.FHIRServer.Auth.Type == "" {
 			c.FHIRServer.Auth.Type = "none" // Default
 		}
 		if !validAuthTypes[c.FHIRServer.Auth.Type] {
-			return fmt.Errorf("fhir_server.auth.type must be one of: bearer, basic, none")
+			return fmt.Errorf("fhir_server.auth.type must be one of: bearer, basic, none, oauth2_client_credentials")
 		}
 
 		// Validate auth credentials based on type
@@ -314,6 +321,20 @@ func (c *Config) validate() error {
 		case "basic":
 			if c.FHIRServer.Auth.Username == "" || c.FHIRServer.Auth.Password == "" {
 				return fmt.Errorf("fhir_server.auth.username and password are required when auth type is basic")
+			}
+		case "oauth2_client_credentials":
+			if c.FHIRServer.Auth.TokenURL == "" {
+				return fmt.Errorf("fhir_server.auth.token_url is required when auth type is oauth2_client_credentials")
+			}
+			if c.FHIRServer.Auth.ClientID == "" {
+				return fmt.Errorf("fhir_server.auth.client_id is required when auth type is oauth2_client_credentials")
+			}
+			if c.FHIRServer.Auth.ClientSecret == "" {
+				return fmt.Errorf("fhir_server.auth.client_secret is required when auth type is oauth2_client_credentials")
+			}
+			validAuthStyles := map[string]bool{"params": true, "header": true, "auto": true, "": true}
+			if !validAuthStyles[c.FHIRServer.Auth.AuthStyle] {
+				return fmt.Errorf("fhir_server.auth.auth_style must be one of: params, header, auto")
 			}
 		}
 	}
