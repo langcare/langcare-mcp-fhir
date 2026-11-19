@@ -58,6 +58,9 @@ func (t *FHIRCreateTool) Execute(ctx context.Context, args map[string]interface{
 	if !ok {
 		return nil, fmt.Errorf("resourceType is required and must be a string")
 	}
+	if err := validateResourceType(resourceType); err != nil {
+		return nil, err
+	}
 
 	resourceData, ok := args["resource"].(map[string]interface{})
 	if !ok {
