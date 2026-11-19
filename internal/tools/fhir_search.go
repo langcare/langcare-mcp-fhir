@@ -58,6 +58,9 @@ func (t *FHIRSearchTool) Execute(ctx context.Context, args map[string]interface{
 	if !ok {
 		return nil, fmt.Errorf("resourceType is required and must be a string")
 	}
+	if err := validateResourceType(resourceType); err != nil {
+		return nil, err
+	}
 
 	queryParams := ""
 	if qp, ok := args["queryParams"].(string); ok {
